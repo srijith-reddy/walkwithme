@@ -1,0 +1,114 @@
+/* ============================
+   MAP
+============================ */
+.map {
+  height: 70vh;
+  width: 100%;
+}
+
+/* ============================
+   INPUTS
+============================ */
+.input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-top: 4px;
+  background: white;
+}
+
+.dark .input {
+  background: #1f2937;
+  color: #f9fafb;
+  border-color: #4b5563;
+}
+
+/* ============================
+   BUTTONS
+============================ */
+.btn-primary,
+.btn-secondary,
+.btn-green {
+  padding: 10px;
+  color: white;
+  border-radius: 8px;
+  text-align: center;
+  width: 100%;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: #4f46e5;
+}
+
+.btn-primary:hover {
+  background: #4338ca;
+}
+
+.btn-secondary {
+  background: #0ea5e9;
+}
+
+.btn-secondary:hover {
+  background: #0284c7;
+}
+
+.btn-green {
+  background: #10b981;
+}
+
+.btn-green:hover {
+  background: #059669;
+}
+
+/* =======================
+   AUTOCOMPLETE DROPDOWN
+======================= */
+.autocomplete-box {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 9999;
+  box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
+}
+
+.dark .autocomplete-box {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+.autocomplete-item {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.active {
+  background: #e0e7ff;
+}
+
+.dark .autocomplete-item {
+  border-bottom: 1px solid #4b5563;
+  color: #f9fafb;
+}
+
+.dark .autocomplete-item:hover,
+.dark .autocomplete-item.active {
+  background: #374151;
+}
+
+/* ============================
+   DARK MODE GLOBAL
+============================ */
+.dark body {
+  background: #111827;
+  color: #f9fafb;
+}
