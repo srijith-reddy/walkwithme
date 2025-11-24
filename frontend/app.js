@@ -1,7 +1,7 @@
 // ----------------------------------------------------------
 // CONFIG
 // ----------------------------------------------------------
-const API = "http://127.0.0.1:8000";
+const API = "https://backend-floral-tree-4711.fly.dev"; 
 
 // GLOBAL MAP + LAYERS
 let map;
@@ -17,6 +17,13 @@ let setStartNext = true;
 // MAP INIT (runs AFTER DOM loads)
 // ----------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
+
+  // Register Service Worker (PWA)
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js")
+      .then(() => console.log("SW registered"))
+      .catch(err => console.log("SW registration failed", err));
+  }
 
   // 1) Init map
   map = L.map("map").setView([40.7128, -74.0060], 14);
@@ -119,7 +126,7 @@ function animateRoute(coords) {
 }
 
 // ----------------------------------------------------------
-// TRANSIT FALLBACK (PATH + FERRY)
+// TRANSIT FALLBACK
 // ----------------------------------------------------------
 function showTransitFallbacks() {
   if (pathLayer) pathLayer.remove();
@@ -136,12 +143,6 @@ function showTransitFallbacks() {
       [40.749641, -74.033963],
       [40.753897, -74.029045],
       [40.712580, -74.009260]
-    ],
-    [
-      [40.735660, -74.030348],
-      [40.739240, -74.026675],
-      [40.742741, -74.023097],
-      [40.748931, -73.992448]
     ]
   ];
 
@@ -149,25 +150,6 @@ function showTransitFallbacks() {
     L.polyline(line, { color: "purple", weight: 4, opacity: 0.8 })
       .addTo(pathLayer)
       .bindPopup("PATH Train Line");
-  });
-
-  const FERRY_LINES = [
-    [
-      [40.7484, -74.0237],
-      [40.7391, -74.0108],
-      [40.7122, -74.0160]
-    ],
-    [
-      [40.7122, -74.0160],
-      [40.7001, -73.9969],
-      [40.7080, -73.9691]
-    ]
-  ];
-
-  FERRY_LINES.forEach(line => {
-    L.polyline(line, { color: "teal", weight: 4, dashArray: "5,5" })
-      .addTo(ferryLayer)
-      .bindPopup("NYC Ferry Route");
   });
 
   alert("Walking unavailable. Showing PATH & Ferry options.");
@@ -368,3 +350,22 @@ function setupAutocomplete(inputId, boxId) {
     }
   });
 }
+
+// ----------------------------------------------------------
+// PWA INSTALL PROMPT
+// ----------------------------------------------------------
+let deferredPrompt;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+
+  const btn = document.getElementById("installBtn");
+  if (btn) btn.style.display = "block";
+
+  btn.onclick = () => {
+    btn.style.display = "none";
+    deferredPrompt.prompt();
+  };
+});
+

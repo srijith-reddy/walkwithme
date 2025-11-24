@@ -3,7 +3,22 @@
 <head>
 <meta charset="UTF-8" />
 <title>Walk With Me</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+<!-- PWA: Theme + App Name -->
+<meta name="theme-color" content="#4f46e5" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Walk With Me" />
+
+<!-- Manifest -->
+<link rel="manifest" href="manifest.json" />
+
+<!-- Icons -->
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="icon" type="image/png" href="icons/icon-192.png" />
 
 <!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -32,20 +47,20 @@
   </button>
 
   <!-- START INPUT -->
-<div class="relative">
-  <label class="text-sm font-semibold">Start (address or lat,lon)</label>
-  <input id="startInput" class="input" placeholder="Enter address…" autocomplete="off" />
-  <input type="hidden" id="startInput_coords" />   <!-- REQUIRED -->
-  <div id="startSuggestions" class="autocomplete-box hidden"></div>
-</div>
+  <div class="relative">
+    <label class="text-sm font-semibold">Start (address or lat,lon)</label>
+    <input id="startInput" class="input" placeholder="Enter address…" autocomplete="off" />
+    <input type="hidden" id="startInput_coords" />
+    <div id="startSuggestions" class="autocomplete-box hidden"></div>
+  </div>
 
-<!-- END INPUT -->
-<div class="relative">
-  <label class="text-sm font-semibold">End (address or lat,lon)</label>
-  <input id="endInput" class="input" placeholder="Enter address…" autocomplete="off" />
-  <input type="hidden" id="endInput_coords" />     <!-- REQUIRED -->
-  <div id="endSuggestions" class="autocomplete-box hidden"></div>
-</div>
+  <!-- END INPUT -->
+  <div class="relative">
+    <label class="text-sm font-semibold">End (address or lat,lon)</label>
+    <input id="endInput" class="input" placeholder="Enter address…" autocomplete="off" />
+    <input type="hidden" id="endInput_coords" />
+    <div id="endSuggestions" class="autocomplete-box hidden"></div>
+  </div>
 
   <div>
     <label class="text-sm font-semibold">Mode</label>
@@ -73,11 +88,22 @@
 <!-- MAP -->
 <div id="map" class="map"></div>
 
-<!-- ELEVATION -->
+<!-- ELEVATION CHART -->
 <div class="p-4 bg-white dark:bg-gray-800 mt-4">
   <canvas id="elevationChart"></canvas>
 </div>
 
+<!-- App Logic -->
 <script src="app.js"></script>
+
+<!-- Register service worker -->
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("service-worker.js")
+    .then(() => console.log("SW registered"))
+    .catch(err => console.error("SW failed", err));
+}
+</script>
+
 </body>
 </html>
