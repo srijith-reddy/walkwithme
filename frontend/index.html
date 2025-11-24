@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Walk With Me</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Custom CSS -->
+<link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="bg-gray-100 dark:bg-gray-900 dark:text-white">
+
+<header class="p-4 bg-indigo-600 dark:bg-indigo-800 text-white text-center text-2xl font-bold">
+  Walk With Me
+</header>
+
+<div class="p-4 bg-white dark:bg-gray-800 shadow-md flex flex-col gap-4">
+
+  <button onclick="useMyLocation()" class="btn-green w-full">
+    📍 Use My Location
+  </button>
+
+  <!-- START INPUT -->
+<div class="relative">
+  <label class="text-sm font-semibold">Start (address or lat,lon)</label>
+  <input id="startInput" class="input" placeholder="Enter address…" autocomplete="off" />
+  <input type="hidden" id="startInput_coords" />   <!-- REQUIRED -->
+  <div id="startSuggestions" class="autocomplete-box hidden"></div>
+</div>
+
+<!-- END INPUT -->
+<div class="relative">
+  <label class="text-sm font-semibold">End (address or lat,lon)</label>
+  <input id="endInput" class="input" placeholder="Enter address…" autocomplete="off" />
+  <input type="hidden" id="endInput_coords" />     <!-- REQUIRED -->
+  <div id="endSuggestions" class="autocomplete-box hidden"></div>
+</div>
+
+  <div>
+    <label class="text-sm font-semibold">Mode</label>
+    <select id="modeSelect" class="input">
+      <option value="shortest">Shortest</option>
+      <option value="safe">Safe</option>
+      <option value="scenic">Scenic</option>
+      <option value="explore">Explore</option>
+      <option value="best">AI Best</option>
+      <option value="loop">Loop (no end)</option>
+    </select>
+  </div>
+
+  <div class="flex gap-4">
+    <button onclick="getRoute()" class="btn-primary">Get Route</button>
+    <button onclick="exportGPX()" class="btn-secondary">Download GPX</button>
+    <button onclick="getTrails()" class="btn-green">Find Trails</button>
+  </div>
+
+  <button onclick="toggleDarkMode()" class="btn-secondary w-full">
+    🌙 Toggle Dark Mode
+  </button>
+</div>
+
+<!-- MAP -->
+<div id="map" class="map"></div>
+
+<!-- ELEVATION -->
+<div class="p-4 bg-white dark:bg-gray-800 mt-4">
+  <canvas id="elevationChart"></canvas>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
