@@ -7,22 +7,15 @@
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
 
-<!-- PWA: Theme + App Name -->
+<!-- Required for GitHub Pages -->
+<base href="/walkwithme/">
+
+<!-- PWA Setup -->
 <meta name="theme-color" content="#4f46e5" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Walk With Me" />
-
-<!-- ⭐ REQUIRED FOR GITHUB PAGES ⭐ -->
-<!-- Replace USERNAME and REPO with your actual GitHub repo path -->
-<base href="/walkwithme/" />
-
-<!-- Manifest -->
 <link rel="manifest" href="manifest.json" />
 
-<!-- Icons -->
-<link rel="apple-touch-icon" href="icons/icon-192.png" />
-<link rel="icon" type="image/png" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="icon" type="image/png" href="icon-192.png" />
 
 <!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
@@ -34,17 +27,16 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Custom CSS -->
+<!-- Your styles -->
 <link rel="stylesheet" href="styles.css" />
 </head>
+<body>
 
-<body class="bg-gray-100 dark:bg-gray-900 dark:text-white">
-
-<header class="p-4 bg-indigo-600 dark:bg-indigo-800 text-white text-center text-2xl font-bold">
+<header class="p-4 bg-indigo-600 text-white text-center text-2xl font-bold">
   Walk With Me
 </header>
 
-<div class="p-4 bg-white dark:bg-gray-800 shadow-md flex flex-col gap-4">
+<div class="p-4 shadow-md bg-white dark:bg-gray-800 flex flex-col gap-4">
 
   <button onclick="useMyLocation()" class="btn-green w-full">
     📍 Use My Location
@@ -89,21 +81,17 @@
   </button>
 </div>
 
-<!-- MAP -->
 <div id="map" class="map"></div>
 
-<!-- ELEVATION CHART -->
 <div class="p-4 bg-white dark:bg-gray-800 mt-4">
   <canvas id="elevationChart"></canvas>
 </div>
 
-<!-- App Logic -->
 <script src="app.js"></script>
 
-<!-- Register service worker -->
 <script>
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js", { scope: "./" })
+  navigator.serviceWorker.register("service-worker.js", { scope: "/walkwithme/" })
     .then(() => console.log("SW registered"))
     .catch(err => console.error("SW failed", err));
 }
@@ -111,4 +99,3 @@ if ("serviceWorker" in navigator) {
 
 </body>
 </html>
-
