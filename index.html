@@ -13,6 +13,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Walk With Me" />
 
+<!-- ⭐ REQUIRED FOR GITHUB PAGES ⭐ -->
+<!-- Replace USERNAME and REPO with your actual GitHub repo path -->
+<base href="/walkwithme/" />
+
 <!-- Manifest -->
 <link rel="manifest" href="manifest.json" />
 
@@ -99,7 +103,7 @@
 <!-- Register service worker -->
 <script>
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js")
+  navigator.serviceWorker.register("service-worker.js", { scope: "./" })
     .then(() => console.log("SW registered"))
     .catch(err => console.error("SW failed", err));
 }
@@ -107,3 +111,4 @@ if ("serviceWorker" in navigator) {
 
 </body>
 </html>
+
