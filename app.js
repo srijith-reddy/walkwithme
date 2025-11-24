@@ -12,27 +12,41 @@ let ferryLayer = null;
 let elevationChart = null;
 
 let setStartNext = true;
+let deferredPrompt = null;
 
 // ----------------------------------------------------------
 // MAP INIT (runs AFTER DOM loads)
 // ----------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
 
-  // Register Service Worker (PWA)
+  // -----------------------------------
+  // DARK MODE LOAD
+  // -----------------------------------
+  if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.classList.add("dark");
+  }
+
+  // -----------------------------------
+  // SERVICE WORKER (PWA)
+  // -----------------------------------
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js")
       .then(() => console.log("SW registered"))
       .catch(err => console.log("SW registration failed", err));
   }
 
-  // 1) Init map
+  // -----------------------------------
+  // MAP INIT
+  // -----------------------------------
   map = L.map("map").setView([40.7128, -74.0060], 14);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
 
-  // 2) Allow clicking map to choose start/end
+  // -----------------------------------
+  // MAP CLICK FOR START / END
+  // -----------------------------------
   map.on("click", function (e) {
     const lat = e.latlng.lat.toFixed(6);
     const lon = e.latlng.lng.toFixed(6);
@@ -50,7 +64,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 3) Attach autocomplete to inputs
+  // -----------------------------------
+  // AUTOCOMPLETE
+  // -----------------------------------
   setupAutocomplete("startInput", "startSuggestions");
   setupAutocomplete("endInput", "endSuggestions");
 });
@@ -164,7 +180,7 @@ async function getRoute() {
   const mode = document.getElementById("modeSelect").value;
 
   if (!start) {
-    alert("Please pick a valid START location from autocomplete.");
+    alert("Please pick a valid START location.");
     return;
   }
 
@@ -173,6 +189,12 @@ async function getRoute() {
     (end ? `&end=${encodeURIComponent(end)}` : "");
 
   const res = await fetch(url);
+
+  if (!res.ok) {
+    alert(`Backend error (HTTP ${res.status})`);
+    return;
+  }
+
   const data = await res.json();
 
   if (data.error) {
@@ -181,10 +203,17 @@ async function getRoute() {
     return;
   }
 
-  if (routeLayer) routeLayer.remove();
-  const coords = data.coordinates.map(c => [Number(c[0]), Number(c[1])]);
+  if (!data.coordinates || !Array.isArray(data.coordinates)) {
+    alert("Unexpected route format from backend.");
+    return;
+  }
 
+  // BACKEND RETURNS [lon, lat]
+  const coords = data.coordinates.map(c => [Number(c[1]), Number(c[0])]);
+
+  if (routeLayer) routeLayer.remove();
   routeLayer = L.polyline(coords, { color: "blue", weight: 4 }).addTo(map);
+
   map.fitBounds(routeLayer.getBounds());
   animateRoute(coords);
 
@@ -229,7 +258,7 @@ async function getTrails() {
   trailLayer = L.layerGroup().addTo(map);
 
   trails.forEach(t => {
-    const coords = t.geometry.map(c => [Number(c[0]), Number(c[1])]);
+    const coords = t.geometry.map(c => [Number(c[1]), Number(c[0])]);
 
     L.polyline(coords, { color: "green", weight: 3 })
       .addTo(trailLayer)
@@ -352,20 +381,35 @@ function setupAutocomplete(inputId, boxId) {
 }
 
 // ----------------------------------------------------------
+// DARK MODE
+// ----------------------------------------------------------
+function toggleDarkMode() {
+  document.documentElement.classList.toggle("dark");
+  localStorage.setItem(
+    "theme",
+    document.documentElement.classList.contains("dark")
+      ? "dark"
+      : "light"
+  );
+}
+
+// ----------------------------------------------------------
 // PWA INSTALL PROMPT
 // ----------------------------------------------------------
-let deferredPrompt;
-
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
   deferredPrompt = e;
 
   const btn = document.getElementById("installBtn");
-  if (btn) btn.style.display = "block";
+  if (!btn) {
+    console.warn("⚠️ installBtn missing from DOM");
+    return;
+  }
+
+  btn.style.display = "block";
 
   btn.onclick = () => {
     btn.style.display = "none";
     deferredPrompt.prompt();
   };
 });
-
