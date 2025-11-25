@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Walk With Me – AR Mode</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  text-align: center;
+  font-family: Arial, sans-serif;
+}
+
+/* Fullscreen camera */
+#camera {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: 1;
+}
+
+#arrow {
+  position: fixed;
+  top: 45%;
+  left: 50%;
+  width: 140px;
+  height: 140px;
+  transform: translate(-50%, -50%);
+  opacity: 0.9;
+  z-index: 2;
+  transition: transform 0.15s linear;
+}
+
+#distanceBox {
+  position: fixed;
+  bottom: 35px;
+  width: 100%;
+  font-size: 26px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 0 6px rgba(0,0,0,1);
+  z-index: 2;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Live camera feed -->
+<video id="camera" autoplay playsinline></video>
+
+<!-- Arrow -->
+<img id="arrow" src="nav_arrow.png" />
+
+<!-- Distance -->
+<div id="distanceBox">Loading…</div>
+
+<script>
+///////////////////////////////////////////////////////////////
+// CAMERA INITIALIZATION (LEVEL 2 UPGRADE)
+///////////////////////////////////////////////////////////////
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+
+    const cam = document.getElementById("camera");
+    cam.srcObject = stream;
+  } catch (err) {
+    alert("Camera access denied. AR will not work.");
+    console.error(err);
+  }
+}
+
+startCamera();   // 🚀 Start camera immediately
+
+///////////////////////////////////////////////////////////////
+// ROUTE + NAVIGATION LOGIC (same as Level 1)
+///////////////////////////////////////////////////////////////
+const params = new URLSearchParams(window.location.search);
+let coords = [];
+
+try {
+  coords = JSON.parse(params.get("coords"));
+} catch (e) {
+  document.getElementById("distanceBox").innerHTML = "No route loaded";
+}
+
+if (!coords || coords.length === 0) {
+  document.getElementById("distanceBox").innerHTML = "No route found";
+}
+
+let targetIndex = 0;
+let target = coords[targetIndex];
+
+function dist(a, b) {
+  const R = 6371e3;
+  const lat1 = a[0] * Math.PI/180;
+  const lat2 = b[0] * Math.PI/180;
+  const dlat = (b[0]-a[0]) * Math.PI/180;
+  const dlon = (b[1]-a[1]) * Math.PI/180;
+
+  const h = Math.sin(dlat/2)**2 +
+            Math.cos(lat1)*Math.cos(lat2) *
+            Math.sin(dlon/2)**2;
+
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+}
+
+function bearingTo(lat1, lon1, lat2, lon2) {
+  const p1 = lat1 * Math.PI/180;
+  const p2 = lat2 * Math.PI/180;
+  const dlon = (lon2 - lon1) * Math.PI/180;
+
+  const y = Math.sin(dlon) * Math.cos(p2);
+  const x =
+    Math.cos(p1)*Math.sin(p2) -
+    Math.sin(p1)*Math.cos(p2)*Math.cos(dlon);
+
+  return (Math.atan2(y, x) * 180/Math.PI + 360) % 360;
+}
+
+let deviceHeading = 0;
+
+window.addEventListener("deviceorientation", (e) => {
+  if (e.webkitCompassHeading !== undefined) {
+    deviceHeading = e.webkitCompassHeading;
+  } else if (e.alpha !== null) {
+    deviceHeading = 360 - e.alpha;
+  }
+});
+
+navigator.geolocation.watchPosition((pos) => {
+  const lat = pos.coords.latitude;
+  const lon = pos.coords.longitude;
+
+  const b = bearingTo(lat, lon, target[0], target[1]);
+  const rotation = b - deviceHeading;
+
+  const arrow = document.getElementById("arrow");
+  arrow.style.transform =
+    `translate(-50%, -50%) rotate(${rotation}deg)`;
+
+  const d = dist([lat, lon], target);
+  document.getElementById("distanceBox").innerHTML =
+    `${d.toFixed(1)} m to next point`;
+
+  if (d < 10 && targetIndex < coords.length - 1) {
+    targetIndex++;
+    target = coords[targetIndex];
+  }
+
+}, (err) => {
+  document.getElementById("distanceBox").innerHTML = "GPS Error";
+}, { enableHighAccuracy: true });
+
+</script>
+
+</body>
+</html>

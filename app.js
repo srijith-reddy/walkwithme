@@ -172,7 +172,7 @@ function showTransitFallbacks() {
 }
 
 // ----------------------------------------------------------
-// GET ROUTE
+// GET ROUTE (updated for Navigation Button)
 // ----------------------------------------------------------
 async function getRoute() {
   const start = document.getElementById("startInput_coords").value;
@@ -208,10 +208,12 @@ async function getRoute() {
     return;
   }
 
-  // BACKEND RETURNS [lon, lat]
-  const coords = data.coordinates.map(c => [Number(c[1]), Number(c[0])]);
+  // BACKEND RETURNS [lat, lon]
+  const coords = data.coordinates.map(c => [Number(c[0]), Number(c[1])]);
 
+  // Clear old route
   if (routeLayer) routeLayer.remove();
+
   routeLayer = L.polyline(coords, { color: "blue", weight: 4 }).addTo(map);
 
   map.fitBounds(routeLayer.getBounds());
@@ -219,6 +221,19 @@ async function getRoute() {
 
   const elevations = data.elevation?.elevations ?? [];
   if (elevations.length) drawElevationChart(elevations);
+
+  window.currentRouteCoords = coords;
+
+  document.getElementById("startNavBtn").classList.remove("hidden");
+
+  const btn = document.getElementById("startNavBtn");
+  btn.textContent = "▶️ Start Navigation";
+  btn.onclick = startNavigation;
+
+  if (window.navWatchId) {
+    navigator.geolocation.clearWatch(window.navWatchId);
+    window.navWatchId = null;
+  }
 }
 
 // ----------------------------------------------------------
@@ -258,7 +273,7 @@ async function getTrails() {
   trailLayer = L.layerGroup().addTo(map);
 
   trails.forEach(t => {
-    const coords = t.geometry.map(c => [Number(c[1]), Number(c[0])]);
+    const coords = t.geometry.map(c => [Number(c[0]), Number(c[1])]);
 
     L.polyline(coords, { color: "green", weight: 3 })
       .addTo(trailLayer)
@@ -413,3 +428,67 @@ window.addEventListener("beforeinstallprompt", (e) => {
     deferredPrompt.prompt();
   };
 });
+
+// ----------------------------------------------------------
+// LIVE NAVIGATION
+// ----------------------------------------------------------
+let navMarker = null;
+let watchId = null;
+
+function startNavigation() {
+  alert("Navigation started!");
+
+  const btn = document.getElementById("startNavBtn");
+  btn.textContent = "🛑 Stop Navigation";
+  btn.onclick = stopNavigation;
+
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const { latitude, longitude } = pos.coords;
+
+      if (navMarker) navMarker.remove();
+
+      navMarker = L.circleMarker([latitude, longitude], {
+        radius: 8,
+        color: "#2563eb",
+        fillColor: "#3b82f6",
+        fillOpacity: 1
+      }).addTo(map);
+
+      map.setView([latitude, longitude], map.getZoom());
+    },
+    err => console.error("GPS error:", err),
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
+  );
+}
+
+function stopNavigation() {
+  alert("Navigation stopped.");
+
+  const btn = document.getElementById("startNavBtn");
+  btn.textContent = "▶️ Start Navigation";
+  btn.onclick = startNavigation;
+
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+
+  if (navMarker) navMarker.remove();
+  navMarker = null;
+}
+
+// ----------------------------------------------------------
+// OPEN AR LEVEL-3  (updated)
+// ----------------------------------------------------------
+function openAR() {
+  if (!window.currentRouteCoords) {
+    alert("Get a route first!");
+    return;
+  }
+
+  const encoded = encodeURIComponent(JSON.stringify(window.currentRouteCoords));
+
+  // 👇 NEW: use your full AI AR3
+  window.location.href = `ar3.html?coords=${encoded}`;
+}
