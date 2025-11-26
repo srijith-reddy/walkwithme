@@ -88,16 +88,15 @@ body {
 <div id="visionBox">Initializing…</div>
 <button id="analyzeBtn">Analyze Scene</button>
 
-
 <!-- ONNX Runtime -->
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.js"></script>
-
 
 <script>
 /* ============================================================
    CAMERA SETUP
 ============================================================ */
 const video = document.getElementById("camera");
+
 navigator.mediaDevices.getUserMedia({
   video: { facingMode: "environment" },
   audio: false
@@ -110,7 +109,7 @@ navigator.mediaDevices.getUserMedia({
 
 
 /* ============================================================
-   LOAD YOLO (CDN, tiny fast model)
+   LOAD YOLOv8n ONNX (ultra-fast)
 ============================================================ */
 let yolo = null;
 
@@ -119,9 +118,10 @@ async function loadModel() {
 
   try {
     yolo = await ort.InferenceSession.create(
-      "https://huggingface.co/onnx/models/resolve/main/yolov8n.onnx", 
+      "https://huggingface.co/onnx/models/resolve/main/yolov8n.onnx",
       { executionProviders: ["wasm"] }
     );
+
     document.getElementById("visionBox").innerHTML = "YOLO Ready";
   } catch (err) {
     console.error(err);
@@ -132,7 +132,7 @@ loadModel();
 
 
 /* ============================================================
-   PREPARE FRAME FOR YOLO
+   PREP FRAME FOR YOLO
 ============================================================ */
 function getFrameTensor() {
   const size = 320;
@@ -157,33 +157,44 @@ function getFrameTensor() {
 
 
 /* ============================================================
-   DANGER CLASSES (A3 smart filtering)
+   DANGER CLASSES
 ============================================================ */
 const DANGER_CLASSES = new Set([
-  0,   // person
-  1,   // bicycle
-  2,   // car
-  3,   // motorcycle
-  5,   // bus
-  7,   // truck
-  15,  // dog
+  0,  // person
+  1,  // bicycle
+  2,  // car
+  3,  // motorcycle
+  5,  // bus
+  7,  // truck
+  15, // dog
 ]);
 
 
 /* ============================================================
-   GPT-4o Vision cooldown
+   GPT-4o VISION COOLDOWN
 ============================================================ */
 let lastVisionCall = 0;
-const COOLDOWN = 25000; // 25 seconds
+const COOLDOWN = 25000; // 25 sec
 
 
 /* ============================================================
-   SEND TO BACKEND GPT-4o
+   SEND TO BACKEND — FIXED PAYLOAD FIELD NAMES
 ============================================================ */
 async function sendToVision(frameB64, objects) {
+
+  // backend expects:
+  // {
+  //   image_b64: "...",
+  //   detections: [...],
+  //   heading: float,
+  //   distance_to_next: null
+  // }
+
   const payload = {
-    frame_b64: frameB64,
-    objects: objects
+    image_b64: frameB64,
+    detections: objects,
+    heading: heading,
+    distance_to_next: null
   };
 
   try {
@@ -194,24 +205,28 @@ async function sendToVision(frameB64, objects) {
     });
 
     const data = await res.json();
-    if (data.ok) document.getElementById("visionBox").innerHTML = data.analysis;
-    else document.getElementById("visionBox").innerHTML = "Vision error.";
+    if (data.ok) {
+      document.getElementById("visionBox").innerHTML = data.analysis;
+    } else {
+      document.getElementById("visionBox").innerHTML = "Vision error";
+    }
   } catch (err) {
+    console.error(err);
     document.getElementById("visionBox").innerHTML = "Vision offline.";
   }
 }
 
 
 /* ============================================================
-   MANUAL ANALYZE BUTTON (forces GPT-4o)
+   MANUAL ANALYZE BUTTON
 ============================================================ */
-document.getElementById("analyzeBtn").onclick = async () => {
-  lastVisionCall = 0; // bypass cooldown
+document.getElementById("analyzeBtn").onclick = () => {
+  lastVisionCall = 0;
 };
 
 
 /* ============================================================
-   YOLO LOOP
+   YOLO DETECTION LOOP
 ============================================================ */
 async function detectLoop() {
   if (!yolo || video.readyState < 2) {
@@ -234,12 +249,10 @@ async function detectLoop() {
     const [x1, y1, x2, y2, score, cls] = raw.slice(i, i+6);
     if (score < 0.40) continue;
 
-    // Only track classes we care about
     if (DANGER_CLASSES.has(cls)) {
       dangerList.push({ cls, score, x1, y1, x2, y2 });
     }
 
-    // convert YOLO coords → screen coords
     const sx = x1 / 320 * window.innerWidth;
     const sy = y1 / 320 * window.innerHeight;
     const sw = (x2 - x1) / 320 * window.innerWidth;
@@ -250,11 +263,9 @@ async function detectLoop() {
     ctx.strokeRect(sx, sy, sw, sh);
   }
 
-  /* GPT-4o Trigger: only when danger detected & cooldown expired */
   if (dangerList.length && Date.now() - lastVisionCall > COOLDOWN) {
     lastVisionCall = Date.now();
 
-    // capture frame
     const snap = document.createElement("canvas");
     snap.width = 480;
     snap.height = 480;
@@ -271,12 +282,16 @@ detectLoop();
 
 
 /* ============================================================
-   BASIC COMPASS + AR ARROW
+   COMPASS / HEADING
 ============================================================ */
 let heading = 0;
+
 window.addEventListener("deviceorientation", (e) => {
-  if (e.webkitCompassHeading !== undefined) heading = e.webkitCompassHeading;
-  else if (e.alpha !== null) heading = 360 - e.alpha;
+  if (e.webkitCompassHeading !== undefined) {
+    heading = e.webkitCompassHeading;
+  } else if (e.alpha !== null) {
+    heading = 360 - e.alpha;
+  }
 });
 
 setInterval(() => {

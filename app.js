@@ -15,38 +15,30 @@ let setStartNext = true;
 let deferredPrompt = null;
 
 // ----------------------------------------------------------
-// MAP INIT (runs AFTER DOM loads)
+// MAP INIT
 // ----------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
 
-  // -----------------------------------
-  // DARK MODE LOAD
-  // -----------------------------------
+  // DARK MODE
   if (localStorage.getItem("theme") === "dark") {
     document.documentElement.classList.add("dark");
   }
 
-  // -----------------------------------
-  // SERVICE WORKER (PWA)
-  // -----------------------------------
+  // SERVICE WORKER
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js")
       .then(() => console.log("SW registered"))
       .catch(err => console.log("SW registration failed", err));
   }
 
-  // -----------------------------------
-  // MAP INIT
-  // -----------------------------------
+  // MAP
   map = L.map("map").setView([40.7128, -74.0060], 14);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
 
-  // -----------------------------------
-  // MAP CLICK FOR START / END
-  // -----------------------------------
+  // CLICK TO SET START/END
   map.on("click", function (e) {
     const lat = e.latlng.lat.toFixed(6);
     const lon = e.latlng.lng.toFixed(6);
@@ -64,9 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // -----------------------------------
-  // AUTOCOMPLETE
-  // -----------------------------------
   setupAutocomplete("startInput", "startSuggestions");
   setupAutocomplete("endInput", "endSuggestions");
 });
@@ -87,92 +76,7 @@ function useMyLocation() {
 }
 
 // ----------------------------------------------------------
-// DIFFICULTY ICONS
-// ----------------------------------------------------------
-function difficultyIcon(level) {
-  if (level === "Easy") return "🟢 Easy";
-  if (level === "Moderate") return "🟡 Moderate";
-  if (level === "Hard") return "🟠 Hard";
-  return "🔴 Very Hard";
-}
-
-// ----------------------------------------------------------
-// ELEVATION CHART
-// ----------------------------------------------------------
-function drawElevationChart(elevations) {
-  if (elevationChart) elevationChart.destroy();
-  const ctx = document.getElementById("elevationChart");
-
-  elevationChart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: elevations.map((_, i) => i),
-      datasets: [{
-        label: "Elevation (m)",
-        data: elevations,
-        borderColor: "#4f46e5",
-        fill: false
-      }]
-    },
-    options: { responsive: true }
-  });
-}
-
-// ----------------------------------------------------------
-// ROUTE ANIMATION
-// ----------------------------------------------------------
-function animateRoute(coords) {
-  let index = 0;
-
-  const marker = L.circleMarker(coords[0], {
-    radius: 6,
-    color: "#0ea5e9",
-    fillColor: "#38bdf8",
-    fillOpacity: 1
-  }).addTo(map);
-
-  function step() {
-    if (index >= coords.length) return;
-    marker.setLatLng(coords[index]);
-    index++;
-    requestAnimationFrame(step);
-  }
-
-  step();
-}
-
-// ----------------------------------------------------------
-// TRANSIT FALLBACK
-// ----------------------------------------------------------
-function showTransitFallbacks() {
-  if (pathLayer) pathLayer.remove();
-  if (ferryLayer) ferryLayer.remove();
-
-  pathLayer = L.layerGroup().addTo(map);
-  ferryLayer = L.layerGroup().addTo(map);
-
-  const PATH_LINES = [
-    [
-      [40.734785, -74.164580],
-      [40.737102, -74.143406],
-      [40.733013, -74.059587],
-      [40.749641, -74.033963],
-      [40.753897, -74.029045],
-      [40.712580, -74.009260]
-    ]
-  ];
-
-  PATH_LINES.forEach(line => {
-    L.polyline(line, { color: "purple", weight: 4, opacity: 0.8 })
-      .addTo(pathLayer)
-      .bindPopup("PATH Train Line");
-  });
-
-  alert("Walking unavailable. Showing PATH & Ferry options.");
-}
-
-// ----------------------------------------------------------
-// GET ROUTE (updated for Navigation Button)
+// ROUTE + VALHALLA FIXED PARSER
 // ----------------------------------------------------------
 async function getRoute() {
   const start = document.getElementById("startInput_coords").value;
@@ -198,20 +102,14 @@ async function getRoute() {
   const data = await res.json();
 
   if (data.error) {
-    if (data.suggest) showTransitFallbacks();
     alert(data.error);
     return;
   }
 
-  if (!data.coordinates || !Array.isArray(data.coordinates)) {
-    alert("Unexpected route format from backend.");
-    return;
-  }
-
-  // BACKEND RETURNS [lat, lon]
+  // ⭐ VALHALLA FIX — correct coordinate ordering
+  // Backend returns [lat, lon]
   const coords = data.coordinates.map(c => [Number(c[0]), Number(c[1])]);
 
-  // Clear old route
   if (routeLayer) routeLayer.remove();
 
   routeLayer = L.polyline(coords, { color: "blue", weight: 4 }).addTo(map);
@@ -224,9 +122,8 @@ async function getRoute() {
 
   window.currentRouteCoords = coords;
 
-  document.getElementById("startNavBtn").classList.remove("hidden");
-
   const btn = document.getElementById("startNavBtn");
+  btn.classList.remove("hidden");
   btn.textContent = "▶️ Start Navigation";
   btn.onclick = startNavigation;
 
@@ -237,7 +134,42 @@ async function getRoute() {
 }
 
 // ----------------------------------------------------------
-// EXPORT GPX
+// TRAILS (Valhalla-compatible)
+// ----------------------------------------------------------
+async function getTrails() {
+  const start = document.getElementById("startInput_coords").value;
+
+  if (!start) {
+    alert("Pick a valid START location first!");
+    return;
+  }
+
+  const res = await fetch(
+    `${API}/trails?start=${encodeURIComponent(start)}&radius=2000&limit=5`
+  );
+  const trails = await res.json();
+
+  if (trailLayer) trailLayer.remove();
+  trailLayer = L.layerGroup().addTo(map);
+
+  trails.forEach(t => {
+    // ⭐ VALHALLA FIX — route geometry is [lat, lon]
+    const coords = t.geometry.map(c => [Number(c[0]), Number(c[1])]);
+
+    L.polyline(coords, { color: "green", weight: 3 })
+      .addTo(trailLayer)
+      .bindPopup(`
+        <b>${t.name}</b><br>
+        ${difficultyIcon(t.difficulty)}<br>
+        Elev Gain: ${t.elevation_gain_m} m<br>
+        Scenic: ${t.scenic}<br>
+        Safety: ${t.safety}
+      `);
+  });
+}
+
+// ----------------------------------------------------------
+// EXPORT GPX (unchanged)
 // ----------------------------------------------------------
 function exportGPX() {
   const start = document.getElementById("startInput_coords").value;
@@ -256,44 +188,11 @@ function exportGPX() {
 }
 
 // ----------------------------------------------------------
-// FIND TRAILS
-// ----------------------------------------------------------
-async function getTrails() {
-  const start = document.getElementById("startInput_coords").value;
-
-  if (!start) {
-    alert("Pick a valid START location first!");
-    return;
-  }
-
-  const res = await fetch(`${API}/trails?start=${encodeURIComponent(start)}&radius=2000&limit=5`);
-  const trails = await res.json();
-
-  if (trailLayer) trailLayer.remove();
-  trailLayer = L.layerGroup().addTo(map);
-
-  trails.forEach(t => {
-    const coords = t.geometry.map(c => [Number(c[0]), Number(c[1])]);
-
-    L.polyline(coords, { color: "green", weight: 3 })
-      .addTo(trailLayer)
-      .bindPopup(`
-        <b>${t.name}</b><br>
-        ${difficultyIcon(t.difficulty)}<br>
-        Elev Gain: ${t.elevation_gain_m} m<br>
-        Scenic: ${t.scenic}<br>
-        Safety: ${t.safety}
-      `);
-  });
-}
-
-// ----------------------------------------------------------
 // AUTOCOMPLETE ENGINE
 // ----------------------------------------------------------
 function setupAutocomplete(inputId, boxId) {
   const input = document.getElementById(inputId);
   const box = document.getElementById(boxId);
-
   const hiddenField = document.getElementById(inputId + "_coords");
 
   let items = [];
@@ -334,7 +233,7 @@ function setupAutocomplete(inputId, boxId) {
       return;
     }
 
-    // Dropdown list
+    // List dropdown
     items.forEach((s, i) => {
       const div = document.createElement("div");
       div.className = "autocomplete-item";
@@ -396,40 +295,6 @@ function setupAutocomplete(inputId, boxId) {
 }
 
 // ----------------------------------------------------------
-// DARK MODE
-// ----------------------------------------------------------
-function toggleDarkMode() {
-  document.documentElement.classList.toggle("dark");
-  localStorage.setItem(
-    "theme",
-    document.documentElement.classList.contains("dark")
-      ? "dark"
-      : "light"
-  );
-}
-
-// ----------------------------------------------------------
-// PWA INSTALL PROMPT
-// ----------------------------------------------------------
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault();
-  deferredPrompt = e;
-
-  const btn = document.getElementById("installBtn");
-  if (!btn) {
-    console.warn("⚠️ installBtn missing from DOM");
-    return;
-  }
-
-  btn.style.display = "block";
-
-  btn.onclick = () => {
-    btn.style.display = "none";
-    deferredPrompt.prompt();
-  };
-});
-
-// ----------------------------------------------------------
 // LIVE NAVIGATION
 // ----------------------------------------------------------
 let navMarker = null;
@@ -479,7 +344,7 @@ function stopNavigation() {
 }
 
 // ----------------------------------------------------------
-// OPEN AR LEVEL-3  (updated)
+// OPEN AR LEVEL-3
 // ----------------------------------------------------------
 function openAR() {
   if (!window.currentRouteCoords) {
@@ -487,8 +352,9 @@ function openAR() {
     return;
   }
 
-  const encoded = encodeURIComponent(JSON.stringify(window.currentRouteCoords));
+  const encoded = encodeURIComponent(
+    JSON.stringify(window.currentRouteCoords)
+  );
 
-  // 👇 NEW: use your full AI AR3
   window.location.href = `ar3.html?coords=${encoded}`;
 }
