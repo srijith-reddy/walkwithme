@@ -1,7 +1,7 @@
 // ----------------------------------------------------------
 // CONFIG
 // ----------------------------------------------------------
-const API = "http://165.227.188.199:8080";
+const API = "https://walkwithme-app-mw2xs.ondigitalocean.app/";
 
 // GLOBAL MAP + LAYERS
 let map;
