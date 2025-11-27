@@ -7,8 +7,6 @@ const API = "https://walkwithme-app-mw2xs.ondigitalocean.app";
 let map;
 let routeLayer = null;
 let trailLayer = null;
-let pathLayer = null;
-let ferryLayer = null;
 let elevationChart = null;
 
 let setStartNext = true;
@@ -28,25 +26,25 @@ document.addEventListener("DOMContentLoaded", () => {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js")
       .then(() => console.log("SW registered"))
-      .catch(err => console.log("SW registration failed", err));
+      .catch(err => console.log("SW failed:", err));
   }
 
-  // MAP
+  // MAP INIT
   map = L.map("map").setView([40.7128, -74.0060], 14);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
 
-  // CLICK TO SET START/END
-  map.on("click", function (e) {
+  // PICK START + END BY CLICKING
+  map.on("click", (e) => {
     const lat = e.latlng.lat.toFixed(6);
     const lon = e.latlng.lng.toFixed(6);
 
     if (setStartNext) {
       document.getElementById("startInput").value = `${lat},${lon}`;
       document.getElementById("startInput_coords").value = `${lat},${lon}`;
-      alert("Start point set. Tap again to set END point.");
+      alert("Start point set. Tap again to set END.");
       setStartNext = false;
     } else {
       document.getElementById("endInput").value = `${lat},${lon}`;
@@ -64,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // USE MY LOCATION
 // ----------------------------------------------------------
 function useMyLocation() {
-  navigator.geolocation.getCurrentPosition(pos => {
+  navigator.geolocation.getCurrentPosition((pos) => {
     const { latitude, longitude } = pos.coords;
 
     document.getElementById("startInput").value = `${latitude},${longitude}`;
@@ -76,7 +74,7 @@ function useMyLocation() {
 }
 
 // ----------------------------------------------------------
-// ROUTE + VALHALLA FIXED PARSER
+// GET ROUTE (backend already returns decoded [lat, lon])
 // ----------------------------------------------------------
 async function getRoute() {
   const start = document.getElementById("startInput_coords").value;
@@ -100,25 +98,23 @@ async function getRoute() {
   }
 
   const data = await res.json();
-
   if (data.error) {
     alert(data.error);
     return;
   }
 
-  // ⭐ VALHALLA FIX — correct coordinate ordering
-  // Backend returns [lat, lon]
-  const coords = data.coordinates.map(c => [Number(c[0]), Number(c[1])]);
+  // ⭐ Backend already returns decoded coordinates
+  const coords = data.coordinates;
+
+  if (!coords || coords.length === 0) {
+    alert("No route coordinates returned.");
+    return;
+  }
 
   if (routeLayer) routeLayer.remove();
 
   routeLayer = L.polyline(coords, { color: "blue", weight: 4 }).addTo(map);
-
   map.fitBounds(routeLayer.getBounds());
-  animateRoute(coords);
-
-  const elevations = data.elevation?.elevations ?? [];
-  if (elevations.length) drawElevationChart(elevations);
 
   window.currentRouteCoords = coords;
 
@@ -127,20 +123,19 @@ async function getRoute() {
   btn.textContent = "▶️ Start Navigation";
   btn.onclick = startNavigation;
 
-  if (window.navWatchId) {
-    navigator.geolocation.clearWatch(window.navWatchId);
-    window.navWatchId = null;
-  }
+  // Elevation chart
+  const elevations = data.elevation?.elevations ?? [];
+  if (elevations.length) drawElevationChart(elevations);
 }
 
 // ----------------------------------------------------------
-// TRAILS (Valhalla-compatible)
+// TRAILS — backend already returns decoded geometry_coords
 // ----------------------------------------------------------
 async function getTrails() {
   const start = document.getElementById("startInput_coords").value;
 
   if (!start) {
-    alert("Pick a valid START location first!");
+    alert("Pick a START location first!");
     return;
   }
 
@@ -152,24 +147,23 @@ async function getTrails() {
   if (trailLayer) trailLayer.remove();
   trailLayer = L.layerGroup().addTo(map);
 
-  trails.forEach(t => {
-    // ⭐ VALHALLA FIX — route geometry is [lat, lon]
-    const coords = t.geometry.map(c => [Number(c[0]), Number(c[1])]);
+  trails.forEach((t) => {
+    const coords = t.geometry_coords; // already decoded [lat, lon]
 
     L.polyline(coords, { color: "green", weight: 3 })
       .addTo(trailLayer)
       .bindPopup(`
         <b>${t.name}</b><br>
-        ${difficultyIcon(t.difficulty)}<br>
+        Difficulty: ${t.difficulty_level}<br>
         Elev Gain: ${t.elevation_gain_m} m<br>
-        Scenic: ${t.scenic}<br>
-        Safety: ${t.safety}
+        Scenic: ${t.scenic_score}<br>
+        Safety: ${t.safety_score}
       `);
   });
 }
 
 // ----------------------------------------------------------
-// EXPORT GPX (unchanged)
+// EXPORT GPX
 // ----------------------------------------------------------
 function exportGPX() {
   const start = document.getElementById("startInput_coords").value;
@@ -188,7 +182,7 @@ function exportGPX() {
 }
 
 // ----------------------------------------------------------
-// AUTOCOMPLETE ENGINE
+// AUTOCOMPLETE
 // ----------------------------------------------------------
 function setupAutocomplete(inputId, boxId) {
   const input = document.getElementById(inputId);
@@ -215,7 +209,6 @@ function setupAutocomplete(inputId, boxId) {
       return;
     }
 
-    // Auto-select 1 result
     if (items.length === 1) {
       const s = items[0];
       input.value = s.label;
@@ -224,7 +217,6 @@ function setupAutocomplete(inputId, boxId) {
       return;
     }
 
-    // Auto-select exact match
     const exact = items.find(x => x.label.toLowerCase() === query.toLowerCase());
     if (exact) {
       input.value = exact.label;
@@ -233,7 +225,6 @@ function setupAutocomplete(inputId, boxId) {
       return;
     }
 
-    // List dropdown
     items.forEach((s, i) => {
       const div = document.createElement("div");
       div.className = "autocomplete-item";
@@ -308,7 +299,7 @@ function startNavigation() {
   btn.onclick = stopNavigation;
 
   watchId = navigator.geolocation.watchPosition(
-    pos => {
+    (pos) => {
       const { latitude, longitude } = pos.coords;
 
       if (navMarker) navMarker.remove();
@@ -317,12 +308,12 @@ function startNavigation() {
         radius: 8,
         color: "#2563eb",
         fillColor: "#3b82f6",
-        fillOpacity: 1
+        fillOpacity: 1,
       }).addTo(map);
 
       map.setView([latitude, longitude], map.getZoom());
     },
-    err => console.error("GPS error:", err),
+    (err) => console.error("GPS error:", err),
     { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
   );
 }
@@ -344,7 +335,7 @@ function stopNavigation() {
 }
 
 // ----------------------------------------------------------
-// OPEN AR LEVEL-3
+// OPEN AR NAV PAGE
 // ----------------------------------------------------------
 function openAR() {
   if (!window.currentRouteCoords) {
